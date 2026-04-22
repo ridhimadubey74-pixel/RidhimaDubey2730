@@ -1,0 +1,238 @@
+```html
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Study Planner | Notes & AI</title>
+
+<link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&family=Plus+Jakarta+Sans:wght@400;500;600;700&display=swap" rel="stylesheet">
+
+<style>
+/* ===== CSS START ===== */
+:root {
+  --bg: #090b18;
+  --surface: rgba(14, 16, 36, 0.95);
+  --text: #e7eefc;
+  --muted: #a3b0ce;
+  --accent: #8b5cf6;
+  --accent-2: #38bdf8;
+  --success: #22c55e;
+  --danger: #f97316;
+  font-family: 'Plus Jakarta Sans', Inter, sans-serif;
+}
+
+body {
+  margin: 0;
+  padding: 32px;
+  background: linear-gradient(180deg, #050712, #090b18);
+  color: var(--text);
+}
+
+.dashboard-grid {
+  display: grid;
+  gap: 20px;
+  grid-template-columns: 1fr 1fr;
+}
+
+.card {
+  background: var(--surface);
+  padding: 20px;
+  border-radius: 20px;
+}
+
+input, textarea {
+  width: 100%;
+  padding: 10px;
+  margin: 5px 0 10px;
+  border-radius: 10px;
+  border: none;
+}
+
+button {
+  padding: 10px;
+  border: none;
+  border-radius: 10px;
+  background: linear-gradient(135deg, var(--accent), var(--accent-2));
+  color: white;
+  cursor: pointer;
+}
+
+.note-card, .todo-item {
+  background: #11152f;
+  padding: 10px;
+  border-radius: 10px;
+  margin-top: 10px;
+}
+
+.todo-item {
+  display: flex;
+  justify-content: space-between;
+}
+
+.completed {
+  text-decoration: line-through;
+  color: var(--muted);
+}
+
+.chat-window {
+  height: 200px;
+  overflow-y: auto;
+  background: #11152f;
+  padding: 10px;
+  border-radius: 10px;
+}
+
+.chat-bubble {
+  margin: 5px 0;
+  padding: 10px;
+  border-radius: 10px;
+}
+
+.bot { background: #1e3a8a; }
+.user { background: #7c3aed; text-align: right; }
+
+@media(max-width:800px){
+  .dashboard-grid { grid-template-columns: 1fr; }
+}
+/* ===== CSS END ===== */
+</style>
+</head>
+
+<body>
+
+<h1>📚 Study Planner Dashboard</h1>
+
+<div class="dashboard-grid">
+
+<!-- Notes -->
+<div class="card">
+<h2>Notes</h2>
+<form id="note-form">
+<input id="note-title" placeholder="Title">
+<textarea id="note-body" placeholder="Write notes..."></textarea>
+<button>Save Note</button>
+</form>
+<div id="notes-list"></div>
+</div>
+
+<!-- Todo -->
+<div class="card">
+<h2>To-Do</h2>
+<form id="todo-form">
+<input id="todo-input" placeholder="Add task">
+<button>Add</button>
+</form>
+<p>Total: <span id="todo-count">0</span> | Done: <span id="todo-completed">0</span></p>
+<div id="todo-items"></div>
+</div>
+
+<!-- AI -->
+<div class="card">
+<h2>AI Assistant</h2>
+<div id="ai-messages" class="chat-window"></div>
+<form id="ai-form">
+<input id="ai-input" placeholder="Ask something...">
+<button>Send</button>
+</form>
+</div>
+
+</div>
+
+<script>
+/* ===== JS START ===== */
+const noteForm = document.getElementById('note-form');
+const noteTitle = document.getElementById('note-title');
+const noteBody = document.getElementById('note-body');
+const notesList = document.getElementById('notes-list');
+
+const todoForm = document.getElementById('todo-form');
+const todoInput = document.getElementById('todo-input');
+const todoItems = document.getElementById('todo-items');
+const todoCount = document.getElementById('todo-count');
+const todoCompleted = document.getElementById('todo-completed');
+
+const aiForm = document.getElementById('ai-form');
+const aiInput = document.getElementById('ai-input');
+const aiMessages = document.getElementById('ai-messages');
+
+let notes = JSON.parse(localStorage.getItem('notes')) || [];
+let todos = JSON.parse(localStorage.getItem('todos')) || [];
+
+function save() {
+  localStorage.setItem('notes', JSON.stringify(notes));
+  localStorage.setItem('todos', JSON.stringify(todos));
+}
+
+function renderNotes() {
+  notesList.innerHTML = '';
+  notes.forEach(n => {
+    notesList.innerHTML += `<div class="note-card"><b>${n.title}</b><p>${n.body}</p></div>`;
+  });
+}
+
+function renderTodos() {
+  todoItems.innerHTML = '';
+  let completed = 0;
+
+  todos.forEach((t, i) => {
+    if(t.completed) completed++;
+
+    todoItems.innerHTML += `
+    <div class="todo-item">
+      <span class="${t.completed ? 'completed':''}" onclick="toggle(${i})">${t.text}</span>
+      <button onclick="removeTodo(${i})">❌</button>
+    </div>`;
+  });
+
+  todoCount.textContent = todos.length;
+  todoCompleted.textContent = completed;
+}
+
+function toggle(i){
+  todos[i].completed = !todos[i].completed;
+  save(); renderTodos();
+}
+
+function removeTodo(i){
+  todos.splice(i,1);
+  save(); renderTodos();
+}
+
+noteForm.onsubmit = e => {
+  e.preventDefault();
+  notes.push({title:noteTitle.value, body:noteBody.value});
+  noteTitle.value=''; noteBody.value='';
+  save(); renderNotes();
+};
+
+todoForm.onsubmit = e => {
+  e.preventDefault();
+  todos.push({text:todoInput.value, completed:false});
+  todoInput.value='';
+  save(); renderTodos();
+};
+
+function botReply(q){
+  if(q.includes("plan")) return "Study 45 mins + 10 min break.";
+  if(q.includes("quiz")) return "Create 5 questions from topic.";
+  return "Make notes with key points + examples.";
+}
+
+aiForm.onsubmit = e => {
+  e.preventDefault();
+  const q = aiInput.value;
+  aiMessages.innerHTML += `<div class="chat-bubble user">${q}</div>`;
+  aiMessages.innerHTML += `<div class="chat-bubble bot">${botReply(q)}</div>`;
+  aiInput.value='';
+};
+
+/* init */
+renderNotes();
+renderTodos();
+/* ===== JS END ===== */
+</script>
+
+</body>
+</html>
+```
